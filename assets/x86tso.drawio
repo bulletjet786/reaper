@@ -1,4 +1,4 @@
-<mxfile host="www.draw.io" modified="2020-05-25T05:21:34.133Z" agent="5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.61 Safari/537.36" etag="4nkd7ZRgX_8cLAT3cQVI" version="13.1.3" type="github">
+<mxfile host="www.draw.io" modified="2020-05-25T05:24:31.927Z" agent="5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.61 Safari/537.36" etag="0x31Jt-4Q8_8UJhNhtZe" version="13.1.3" type="github">
   <diagram id="C0adtZawv3__-3Yso5-N" name="Page-1">
     <mxGraphModel dx="2029" dy="1131" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
@@ -70,7 +70,7 @@
         <mxCell id="F39sRsljc0ifnQZl1Yur-20" value="cache，使用MESI保证各CPU缓存的一致性" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
           <mxGeometry x="500" y="220" width="250" height="50" as="geometry" />
         </mxCell>
-        <mxCell id="F39sRsljc0ifnQZl1Yur-21" value="写缓冲区，CPU独享" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+        <mxCell id="F39sRsljc0ifnQZl1Yur-21" value="写缓冲区，CPU独享，FIFO" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
           <mxGeometry x="500" y="135" width="250" height="50" as="geometry" />
         </mxCell>
         <mxCell id="F39sRsljc0ifnQZl1Yur-22" value="X86-TSO内存模型" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">

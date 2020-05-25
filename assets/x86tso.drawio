@@ -1,4 +1,4 @@
-<mxfile host="www.draw.io" modified="2020-05-25T05:15:42.305Z" agent="5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.61 Safari/537.36" etag="YO5TsgNlCPXUUHtD2GOD" version="13.1.3" type="github">
+<mxfile host="www.draw.io" modified="2020-05-25T05:21:34.133Z" agent="5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/83.0.4103.61 Safari/537.36" etag="4nkd7ZRgX_8cLAT3cQVI" version="13.1.3" type="github">
   <diagram id="C0adtZawv3__-3Yso5-N" name="Page-1">
     <mxGraphModel dx="2029" dy="1131" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="827" pageHeight="1169" math="0" shadow="0">
       <root>
@@ -67,16 +67,16 @@
         <mxCell id="F39sRsljc0ifnQZl1Yur-19" value="内存，线程共享" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
           <mxGeometry x="540" y="320" width="170" height="40" as="geometry" />
         </mxCell>
-        <mxCell id="F39sRsljc0ifnQZl1Yur-20" value="cache，使用MESI保证各CPU缓存的一致性，不会引起线程间数据不一致问题" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+        <mxCell id="F39sRsljc0ifnQZl1Yur-20" value="cache，使用MESI保证各CPU缓存的一致性" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
           <mxGeometry x="500" y="220" width="250" height="50" as="geometry" />
         </mxCell>
-        <mxCell id="F39sRsljc0ifnQZl1Yur-21" value="写缓冲区，CPU独享，会引起线程间数据不一致问题" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+        <mxCell id="F39sRsljc0ifnQZl1Yur-21" value="写缓冲区，CPU独享" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
           <mxGeometry x="500" y="135" width="250" height="50" as="geometry" />
         </mxCell>
         <mxCell id="F39sRsljc0ifnQZl1Yur-22" value="X86-TSO内存模型" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
           <mxGeometry x="210" y="10" width="370" height="40" as="geometry" />
         </mxCell>
-        <mxCell id="F39sRsljc0ifnQZl1Yur-23" value="操作系统虚拟化后的寄存器，会引起数据不一致问题" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+        <mxCell id="F39sRsljc0ifnQZl1Yur-23" value="寄存器，编译器可能会使用编译器对数据进行缓存" style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
           <mxGeometry x="500" y="60" width="250" height="45" as="geometry" />
         </mxCell>
       </root>

@@ -7,24 +7,25 @@
 
 ## volatile变量特性
 在java中，将一个变量声明为volatile，意味着该变量具有两个特性
+- 原子性
 - 可见性
-- 有序性
+- 禁止部分重排序
 
-对于这两个特性，从软件和硬件两次层面来进行解释，这里要强调一点的是，对于硬件工程师，关注的是可能更多的是硬件的实现，而对于软件工程师关注更多的则是硬件提供的抽象和承诺。理解这里有两个层次非常重要，对于软件层面，可以看作是接口，对于硬件层面，则应看作是实现。
+### 原子性
+对vlatile变量的读写操作是原子的，java的64位普通变量不保证是原子性的
 
 ### 可见性
-在软件层面，意味着：对当前变量所做的修改在其他线程中是立即可见的
+对一个volatile变量的读，总是能看到最后一次对该变量的写。在编译器和CPU上，需要保证每次对变量的读取都会从内存中获取而不从寄存器或者cache中获取缓存值，每次对变量的修改都会立即写入内存中
 
-在硬件层面，意味着：每次对变量的读取都会从内存中获取而不从寄存器或者cache中获取缓存值，每次对变量的修改都会立即写入内存中
-
-### 有序性
-
-在软件层面，意味着：读写volatile变量之前的代码一定先于该行代码之后的代码执行
-
-在硬件层面，意味着：利用编译屏障防止编译器指令重排序，利用内存屏障防止处理器和内存系统做指令重排序
+### 禁止部分重排序
+- 对volatile变量的读，具有acquire语义（jdk5以后增加）
+- 对volatile变量的写，具有release语义（jdk5以后增加）
+- volatile变量间，禁止重排序（jdk5之前就有）
 
 #### 指令重排序
 这些指令重排序的目的是编译器和处理器为了加快指令执行速度，从而尽可能优化指令排列，但是他们也带来了一些问题：编译器和处理器保证，对单线程程序，优化后的的执行顺序和优化前的执行顺序“看起来”一样，但是对于多线程程序，则不保证。
+
+指令重排序会影响volatile的可见性，为了实现volatile的可见性，需要利用编译屏障防止编译器指令重排序，利用内存屏障防止处理器和内存系统做指令重排序。
 
 在讲述禁止指令重排序之前，我们先看一些指令重排序的例子：
 ```
@@ -47,7 +48,7 @@ void q() {
 ```
 1. 在单线程中，我们执行p()，指令1和指令2没有数据依赖关系，有可能会出现指令2在指令1之前执行，但是指令3一定是在指令1和指令2完成之后才执行，但是对于我们软件工程师来说，**在单线程中，我们观察不到重排序**，这是编译器和处理器提供给我们的承诺，是我们能够编写可预测代码的基础。
 
-2. 现在来看一个多线程程序，我们分别执行在两个线程中执行p()和q()，有可能会出现断言失败的情形，按照我们的预测，当b为2的时候，一定有a为1，但是发生了重排序，指令2先于指令1执行了，导致断言失败了。注意**在多线程中，我们观察到了重排序**，这是编译器和处理器没有给我们提供的抽象。
+2. 现在来看一个多线程程序，我们分别执行在两个线程中执行p()和q()，有可能会出现断言失败的情形，按照我们的预测，当b为2的时候，一定有a为1，但是发生了重排序，指令2先于指令1执行了，导致断言失败。注意**在多线程中，我们观察到了重排序**，这是编译器和处理器没有给我们提供的抽象。
 
 ---
 编译器和处理器保证给软件工程师的承诺：
@@ -58,10 +59,33 @@ void q() {
 
 ---
 
+#### 指令重排序类型
 在搞明白指令重排序之后，我们先看下都有哪些重排序操作：
 - 编译器重排序：编译器（包括解释器）为了加快程序执行速度，会重新排序指令，排序后的指令在单线程中执行的结果会保证和原有的执行结果不变，但是在多线程时则不保证
 - 指令重排序：CPU可以对没有数据依赖的指令乱序执行，在部分处理器，访存指令不会重排序，比如X86-TSO
 - 内存伪重排序：由于在访问内存的中间包含有CPU独享级的缓存机制，使得在读写内存时看到不一致的值，就好像出现了指令乱序一样
+
+#### java的volatile重排序规则
+为了实现java的volatile语义，java限制了某些操作的指令重排序
+![volatile重排序规则](https://tva1.sinaimg.cn/large/007S8ZIlly1gfh89duofmj30nq0cuwfe.jpg)
+
+- 第二行，如果第一个操作是读，则后续的任何读写都不允许重排序到读前面，是acquire的语义
+- 第三列，如果第一个操作是写，则之前的任何读写都不允许重排序到写后面，是release的语义
+- 右下角四个，不允许volatile变量间重排，是jdk5之前的语义
+
+#### volatile变量间重排序的例子
+```
+volatile a = b = 0;
+void t1() {
+    a = 1;      // 1
+    r1 = b;     // 2
+}
+void t2() {
+    b = 1;      // 3
+    r2 = a;     // 4
+}
+```
+如果允许1和2，3和4重排，则会出现r1和r2都等于0的情况，而这是不应该出现的。所以java禁止volatile变量间的重排序。
 
 #### 顺序一致性模型
 
@@ -201,23 +225,24 @@ b = 0       // b是我们要实现的volatile变量
 c = 0
 void p() {
     a = 1
-    // 插入编译器屏障，防止a=1重排到把b=2后面
+    // 插入编译器屏障（StoreStore），防止a=1重排到把b=2后面
     asm volatile("":::"memory")
     b = 2
-    // 插入mfence指令，清空StoreBuffer，保证a=1的指令被刷新到内存中，也防止编译器将c=1重排到前面
+    // 插入mfence指令（StoreLoad），清空StoreBuffer，保证a=1的指令被刷新到内存中，也防止编译器将c=1重排到前面
     asm volatile("mfence":::"memory")
     c = 1
 }
 void q() {
     while (true) {
-        c = 3
-        // 插入编译器屏障，重新内存读取，防止c=3重排到后面
+        a = 3
+        r1 = b
+        // 插入编译器屏障（LoadLoad），重新内存读取，防止a=3重排到后面
         asm volatile("":::"memory")
-        r = b
-        // 插入编译器屏障，重新内存读取，防止c=5重排到前面，if语句有数据依赖不会重排
+        // 插入编译器屏障（LoadStore），重新内存读取，防止后面的指令重排到前面
         asm volatile("":::"memory")
-        if (r == 2) {
-            assert (a == 1)
+        r2 = a
+        if (r1 == 2) {
+            assert (r2 == 1)
         }
         c = 5
     }
@@ -239,6 +264,8 @@ X86-TSO有StoreLoad重排序现象，对此其提供了mfence和lock等内存屏
 - PSO：有StoreStore/StoreLoad现象，需要可以实现StoreStore/StoreLoad内存屏障的指令
 - RMO：有StoreStore/StoreLoad/LoadLoad/LoadStore现象，需要可以实现StoreStore/StoreLoad/LoadLoad/LoadStore内存屏障的指令
 
+那么这四种内存屏障的作用是什么呢？
+
 ### 主流硬件的重排序现象和屏障指令
 ![主流](https://tva1.sinaimg.cn/large/007S8ZIlly1gfb06jducdj30q40tgaas.jpg)
 
@@ -250,17 +277,21 @@ X86-TSO有StoreLoad重排序现象，对此其提供了mfence和lock等内存屏
 但是呢，这个规则对于编译器作者而言太不友好了，还要分第一操作和第二操作的类型，太复杂了，为此，编译器决定使用一个更加严格却更容易实现的规则来实现：
 - 在每个volatile写前面加入一个StoreStore
 - 在每个volatile写后面加入一个StoreLoad
-- 在每个volatile读前面加入一个LoadLoad
+- 在每个volatile读后面加入一个LoadLoad
 - 在每个volatile读后面加入一个LoadStore
 
 这也是我们上面在x86-TSO上所采用的规则。
 
 接下来我们看看Java是如何实现这四种屏障的，以下是java12中的源码：
 ```
-// 
-static inline void compiler_barrier() {
-  __asm__ volatile ("" : : : "memory");
-}
+inline void OrderAccess::loadload()   { compiler_barrier(); }
+inline void OrderAccess::storestore() { compiler_barrier(); }
+inline void OrderAccess::loadstore()  { compiler_barrier(); }
+inline void OrderAccess::storeload()  { fence();            }
+
+inline void OrderAccess::acquire()    { compiler_barrier(); }
+inline void OrderAccess::release()    { compiler_barrier(); }
+
 inline void OrderAccess::fence() {
    // always use locked addl since mfence is sometimes expensive
 #ifdef AMD64
@@ -268,17 +299,14 @@ inline void OrderAccess::fence() {
 #else
   __asm__ volatile ("lock; addl $0,0(%%esp)" : : : "cc", "memory");
 #endif
-  // 我觉得这句没有意义，但是多了也无伤大雅，因为编译器优化屏障并不会生成真正的指令，只是给编译器看的
-  compiler_barrier();       
+  compiler_barrier();
 }
-inline void OrderAccess::loadload()   { compiler_barrier(); }
-inline void OrderAccess::storestore() { compiler_barrier(); }
-inline void OrderAccess::loadstore()  { compiler_barrier(); }
-inline void OrderAccess::storeload()  { fence();            }
 ```
 
 ### volatile实现机制
 那么Java是如何使用这些内存屏障的呢？
+
+#### putstatic和getstatic字节码
 ```
 // https://github.com/openjdk/jdk/blob/master/src/hotspot/share/interpreter/bytecodeInterpreter.cpp
 
@@ -286,6 +314,7 @@ inline void OrderAccess::storeload()  { fence();            }
 TosState tos_type = cache->flag_state();
 int field_offset = cache->f2_as_index();
 if (cache->is_volatile()) {
+  // 这是ARM和Power处理器的细节上的兼容，我们不考虑
   if (support_IRIW_for_not_multiple_copy_atomic_cpu) {
     OrderAccess::fence();
   }
@@ -330,22 +359,176 @@ if (cache->is_volatile()) {
     ...
   }
 }
-
 ```
 - 在读取volatile变量时，会调用int_field_acquire，而普通变量则会调用int_field
-- 在写入volatile变量时，会调用release_int_field_put，在写入完成后会调用OrderAccess::storeload()内存屏障，而普通变量则会调用int_field_put
+- 在写入volatile变量时，会调用release_int_field_put，在写入完成后会调用OrderAccess::storeload()内存屏障，这是符合我们预期的，而普通变量则会调用int_field_put。
+
+那么另外三个内存屏障去哪了呢？我们怀疑在读取变量时，int_field_acquire比int_field在后面多了LoadLoad和LoadStore屏障，而release_int_field_put比int_field_put在前面多了StoreStore屏障。我们看看是不是这样的。
 ```
-jint oopDesc::int_field_acquire(int offset) const                     { return HeapAccess<MO_ACQUIRE>::load_at(as_oop(), offset); }
-void oopDesc::release_int_field_put(int offset, jint value)           { HeapAccess<MO_RELEASE>::store_at(as_oop(), offset, value); }
+// https://github.com/openjdk/jdk/blob/master/src/hotspot/share/oops/oop.cpp
+
+inline jint oopDesc::int_field(int offset) const { 
+    return HeapAccess<>::load_at(as_oop(), offset);
+}
+inline void oopDesc::int_field_put(int offset, jint value)  {
+    HeapAccess<>::store_at(as_oop(), offset, value);
+}
+jint oopDesc::int_field_acquire(int offset) const { 
+    return HeapAccess<MO_ACQUIRE>::load_at(as_oop(), offset);
+}
+void oopDesc::release_int_field_put(int offset, jint value) {
+    HeapAccess<MO_RELEASE>::store_at(as_oop(), offset, value);
+}
+```
+- 在读取volatile变量的时候带有MO_ACQUIRE，普通变量没有
+- 在写入volatile变量的时候带有MO_RELEASE，普通变量没有
+
+那么MO_ACQUIRE、MO_RELEASE到底是什么意思呢？HeapAccess是干嘛的呢？load_at和store_at的逻辑又是什么呢？
+
+#### Acquire和Release语义
+```
+// == Memory Ordering Decorators ==
+// MO_ACQUIRE is equivalent to JMM acquire.
+// MO_RELEASE is equivalent to JMM release.
+//  * MO_ACQUIRE: Acquiring loads.
+//    - An acquiring load will make subsequent memory accesses observe the memory accesses
+//      preceding the releasing store that the acquiring load observed.
+//    - Guarantees from relaxed loads hold.
+//  * MO_RELEASE: Releasing stores.
+//    - The releasing store will make its preceding memory accesses observable to memory accesses
+//      subsequent to an acquiring load observing this releasing store.
+//    - Guarantees from relaxed stores hold.
+```
+acquire和relase都是单向屏障，如上面所说：
+
+- ACQUIRE：LoadAcquire之后的任何读写都不允许重排序到LoadAcquire前面
+- RELEASE：ReleaseStore之前的任何读写都不允许重排序到ReleaseStore后面
+Acquire和Release都是单向屏障，需要配对使用才能实现类似全屏障的功能，好处是不需要StoreLoad屏障，StoreLoad屏障在大多数CPU架构上开销都比较大，在实现上
+![Acquire和Release](https://tva1.sinaimg.cn/large/007S8ZIlly1gfkpnh6iqfj30ia06s3z7.jpg)
+- 在LoadAcquire之后放置LoadLoad和LoadStore屏障
+- 在ReleaseStore之前放置LoadStore和StoreStore屏障
+
+#### LoadAcquire和ReleaseStore实现
+
+HeapAccess是用来从堆内存中访问变量的值的，其范型参数是访问内存时的描述符，从上面LoadAcquire和ReleaseStore语义的描述来看，LoadLoad、LoadStore、StoreStore屏障是放在了LoadAcquire和ReleaseStore语义的实现中的，那么显然是和MO_ACQUIRE、MO_RELEASE这两个内存访问描述符有关，那么内存访问描述符对load_at和store_at的影响是什么呢？我对C++实在不了解，只能看懂个大概，大概的流程如下：
+```
+template <DecoratorSet decorators>
+template <DecoratorSet ds, typename T>
+inline typename EnableIf<
+  HasDecorator<ds, MO_ACQUIRE>::value, T>::type
+RawAccessBarrier<decorators>::load_internal(void* addr) {
+  return OrderAccess::load_acquire(reinterpret_cast<const volatile T*>(addr));
+}
+template <DecoratorSet decorators>
+template <DecoratorSet ds, typename T>
+inline typename EnableIf<
+  HasDecorator<ds, MO_RELEASE>::value>::type
+RawAccessBarrier<decorators>::store_internal(void* addr, T value) {
+  OrderAccess::release_store(reinterpret_cast<volatile T*>(addr), value);
+}
 ```
 
+- 带有MO_ACQUIRE描述符将会调用OrderAccess::load_acquire
+- 带有MO_RELEASE描述符将会调用OrderAccess::release_store
 
+```
+template <typename T>
+inline T OrderAccess::load_acquire(const volatile T* p) {
+  return LoadImpl<T, PlatformOrderedLoad<sizeof(T), X_ACQUIRE> >()(p);
+}
+template <typename T, typename D>
+inline void OrderAccess::release_store(volatile D* p, T v) {
+  StoreImpl<T, D, PlatformOrderedStore<sizeof(D), RELEASE_X> >()(v, p);
+}
 
+template<size_t byte_size, ScopedFenceType type>
+struct OrderAccess::PlatformOrderedStore {
+  template <typename T>
+  void operator()(T v, volatile T* p) const {
+    ordered_store<T, type>(p, v);
+  }
+};
+template<size_t byte_size, ScopedFenceType type>
+struct OrderAccess::PlatformOrderedLoad {
+  template <typename T>
+  T operator()(const volatile T* p) const {
+    return ordered_load<T, type>(p);
+  }
+};
+
+template <typename FieldType, ScopedFenceType FenceType>
+inline void OrderAccess::ordered_store(volatile FieldType* p, FieldType v) {
+  ScopedFence<FenceType> f((void*)p);
+  Atomic::store(v, p);
+}
+template <typename FieldType, ScopedFenceType FenceType>
+inline FieldType OrderAccess::ordered_load(const volatile FieldType* p) {
+  ScopedFence<FenceType> f((void*)p);
+  return Atomic::load(p);
+}
+
+```
+
+- 而带有MO_ACQUIRE描述符最终会调用OrderAccess::ordered_load，其中FenceType=X_ACQUIRE
+- 而带有MO_RELEASE描述符最终会调用OrderAccess::ordered_store，其中FenceType=RELEASE_X
+
+看OrderAccess::ordered_load和OrderAccess::ordered_store这两个函数，显然，内存屏障就隐藏在ScopedFence<FenceType> f((void*)p)这条语句语句中，看下怎么实现的：
+
+```
+template <ScopedFenceType T>
+class ScopedFence : public ScopedFenceGeneral<T> {
+  void *const _field;
+ public:
+  ScopedFence(void *const field) : _field(field) { prefix(); }
+  ~ScopedFence() { postfix(); }
+  void prefix() { ScopedFenceGeneral<T>::prefix(); }
+  void postfix() { ScopedFenceGeneral<T>::postfix(); }
+};
+template<> inline void ScopedFenceGeneral<X_ACQUIRE>::postfix()       { OrderAccess::acquire(); }
+template<> inline void ScopedFenceGeneral<RELEASE_X>::prefix()        { OrderAccess::release(); }
+template<> inline void ScopedFenceGeneral<RELEASE_X_FENCE>::prefix()  { OrderAccess::release(); }
+template<> inline void ScopedFenceGeneral<RELEASE_X_FENCE>::postfix() { OrderAccess::fence();   }
+template <typename FieldType, ScopedFenceType FenceType>
+inline void OrderAccess::ordered_store(volatile FieldType* p, FieldType v) {
+  ScopedFence<FenceType> f((void*)p);
+  Atomic::store(v, p);
+}
+```
+
+- 在构造函数中，会调用prefix()函数，当FenceType为RELEASE_X，调用OrderAccess::release();
+- 在析构函数中，会调用postfix()函数，当FenceType为X_ACQUIRE，调用OrderAccess::acquire();
+- 对于栈中的对象，析构函数调用的时机为返回退出前
+
+所以我们把原函数改写一下，就是这样的：
+```
+OrderAccess::ordered_store(volatile FieldType* p, FieldType v) {
+  scopedFence.prefix();
+  Atomic::store(v, p);
+  scopedFence.postfix();
+}
+```
+
+prefix()和postfix()就是插入内存屏障的地方，我们看是怎么插入的：
+
+当FenceType为X_ACQUIRE，调用OrderAccess::acquire()，如我们对上面Acquire语义实现原理写的，Acquire屏障的实现就是在LoadAcquire之后放置LoadLoad和LoadStore屏障，在X86屏障，LoadLoad和LoadStore屏障的实现都是插入编译器屏障，所有OrderAccess::acquire()也是直接插入编译器屏障即可
+
+当FenceType为RELEASE_X，调用OrderAccess::release()，Acquire屏障的实现就是在LoadAcquire之前放置LoadStore和StoreStore屏障，也是直接插入编译器屏障即可
+
+```
+inline void OrderAccess::loadload()   { compiler_barrier(); }
+inline void OrderAccess::storestore() { compiler_barrier(); }
+inline void OrderAccess::loadstore()  { compiler_barrier(); }
+inline void OrderAccess::storeload()  { fence();            }
+
+inline void OrderAccess::acquire()    { compiler_barrier(); }
+inline void OrderAccess::release()    { compiler_barrier(); }
+```
     
 ## 参考文档
 - [Java内存模型](https://www.cnblogs.com/csniper/articles/5463138.html)
 - [内存屏障与Volatile总结](http://www.chaozh.com/volatile-memory-barrior-summary/)
 - [The JSR-133 Cookbook for Compiler Writers](http://gee.cs.oswego.edu/dl/jmm/cookbook.html)
+- [The JSR-133 Cookbook for Compiler Writers 译](https://gorden5566.com/post/1020.html)
 - [编译时内存重排序](http://blog.sina.com.cn/s/blog_77e418120101m8b0.html)
 - [内存一致性模型](http://www.wowotech.net/memory_management/456.html)
 - [linux内核中的内存屏障](https://www.cnblogs.com/lysuns/articles/4771842.html)
@@ -366,3 +549,18 @@ void oopDesc::release_int_field_put(int offset, jint value)           { HeapAcce
 - [优化屏障第三讲](https://blog.csdn.net/kissmonx/article/details/9334699)
 - [Why Memory Barrier？](https://www.cnblogs.com/flintlovesam/p/7381132.html)
 - [Volatile从入门到放弃](https://www.geek-share.com/detail/2695810486.html)
+- [通过版本控制理解内存屏障](https://mhy12345.xyz/translation/memory-barrier/)
+- [Acquire和Release语义](https://mhy12345.xyz/translation/acquire-and-release-semantics/)
+- [Fixing the Java Memory Model, Part 1](https://www.ibm.com/developerworks/library/j-jtp02244/index.html)
+- [Fixing the Java Memory Model, Part 2](https://www.ibm.com/developerworks/library/j-jtp03304/index.html)
+- [JSR 133 (Java Memory Model) FAQ](https://www.cs.umd.edu/~pugh/java/memoryModel/jsr-133-faq.html)
+- [The Java Memory Model](http://www.cs.umd.edu/~pugh/java/memoryModel/)
+- [The "Double-Checked Locking is Broken" Declaration](http://www.cs.umd.edu/~pugh/java/memoryModel/DoubleCheckedLocking.html)
+- [Volatile重排序规则的一些理解](https://blog.csdn.net/qq_39054532/article/details/104608077)
+- [JDK1.5之前的volatile与JDK1.5之后的volatilevolatile](https://cloud.tencent.com/developer/article/1121728)
+- [volatile变量修饰符—意料之外的问题](https://www.cnblogs.com/zailushang1996/p/8795417.html)
+- [Volatile的重排序](https://www.cnblogs.com/shujiying/p/12362436.html)
+- Java并发编程的艺术
+- 深入理解Java虚拟机第三版
+- JSR133中文版
+- Java语言规范 基于JavaSE8

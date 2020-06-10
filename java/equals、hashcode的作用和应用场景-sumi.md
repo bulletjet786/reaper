@@ -44,7 +44,7 @@ public class LinkedListexample {
 }
 ```  
 
-##hashcode：  
+## hashcode：  
 hashCode()方法是给对象返回一个hash code值，Object类中定义的hashCode()方法对于不同对象会返回不同的Integer，这就是不同对象的hash code。  
 在object类中，定义如下：  
 `public native int hashCode(); `  

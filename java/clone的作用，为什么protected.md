@@ -13,7 +13,7 @@ clone翻译过来就是克隆，简单来说就是复制。这里，有两个概
 - 重写clone()方法的时候，要实现一个Cloneable接口。如果不实现就
 会抛出异常：CloneNotSupportedException
 - object中本地的clone()方法，默认是浅拷贝。  
-![浅复制 图片](https://imgchr.com/i/tjq2Yn)
+![浅复制](https://s1.ax1x.com/2020/06/13/tjq2Yn.md.png)
 ## 为什么clone是protected修饰
 首先引用一下core java中的一段话，  
 之所以把Object类中的clone方法定义为protected,是因为若把clone方法定义为public时,失去了安全机制.

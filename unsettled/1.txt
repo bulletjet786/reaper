@@ -1,0 +1,196 @@
+1. 网络相关(tcp/ip, http, rpc, socket, 负载均衡):
+>- tcp/ip，http协议分别对应OSI七层网络哪一层; https://blog.csdn.net/THISISPAN/article/details/7489778
+>- tcp协议三次握手，四次挥手的过程; https://blog.csdn.net/weixin_42153410/article/details/80277733
+>- tcp协议和udp协议的区别,优缺点; https://blog.csdn.net/qq_34624951/article/details/82669444
+>- 浅析tcp协议TimeWait状态，是客户端状态还是服务端状态; 如果产生大量TimeWait可能会导致哪些风险，如何解决？https://www.cnblogs.com/dadonggg/p/8778318.html
+>- 简单描述http协议？https://www.cnblogs.com/likeliu/p/7452984.html
+>- HTTP常见的method有哪几种？GET和POST的区别;
+>- 详细描述通过浏览器发起一次http请求的完整流程;
+>- http和https协议的区别;
+>- https工作原理;
+>- http1.0, http1.1和http2.0的区别; https://segmentfault.com/a/1190000016656529?utm_source=tag-newest
+>- 如果解决浏览器跨域访问问题;
+>- 常见HTTP状态码考察，2xx, 3xx, 4xx, 5xx; 304含义;
+>- 谈谈自己对restful api的理解;
+>- cookie和session的作用与区别;
+>- 什么是csrf攻击，如何解决;
+>- http://www.cnblogs.com/hyddd/archive/2009/04/09/1432744.html
+>- socket含义;
+>- socket, tcp/ip, http之间的区别和联系;
+>- rpc协议的含义;
+>- rpc和http协议的区别;
+>- 常用的rpc框架;thrift, dubbo, grpc;
+>- 服务端负载均衡常用的技术: nginx, lvs, haproxy等;
+>- https://blog.csdn.net/cteng/article/details/40862915
+>- 常见的负载均衡算法(轮询，随机，哈希,最小连接及其各种变种);
+>- https://www.cnblogs.com/xrq730/p/5154340.html
+
+2. 操作系统相关：(https://zhuanlan.zhihu.com/p/23755202)
+>- 进程和线程的区别;
+>- 进程的状态及转换;
+>- 进程通信的方式; (共享存储，消息传递，管道通信)
+>- 线程同步的方式;
+>- 用户态和内核态的区别;
+>- 系统调用的概念;
+>- 死锁产生的原因以及处理方法;
+>- 什么是虚拟内存; （https://baike.baidu.com/item/%E8%99%9A%E6%8B%9F%E5%86%85%E5%AD%98#reference-[4]-976-wrap）
+>- [同步IO和异步IO的概念](https://www.cnblogs.com/euphie/p/6376508.html)
+>- [什么是IO多路复用](http://www.cnblogs.com/wt645631686/p/8528912.html)
+>- IO多路复用技术select, poll, epoll的区别;
+
+3. 数据库相关(mysql, redis, memcached, mongodb, hbase, elasticsearch):
+>- 关系型数据库和非关系型数据库区别; https://blog.csdn.net/oChangWen/article/details/53423301
+>- mysql innodb和myIsam的区别; https://www.zhihu.com/question/20596402
+>- innodb的存储结构;
+>- B+树和B树的区别; https://juejin.im/post/5d4a7559f265da03e05afcb4
+>- drop, delete和truncate区别;
+>- mysql索引类型;
+>- https://segmentfault.com/q/1010000003832312
+>- 聚簇索引的存储结构,匹配规则; https://blog.csdn.net/u013132035/article/details/82193763
+>- 自增ID做主键索引的好处; https://blog.csdn.net/bigtree_3721/article/details/73151028
+>- 事务概念, ACID含义;
+>- mysql事务的四种隔离级别,以及实现机制;
+>- 悲观锁和乐观锁的区别;
+>- 间隙锁概念; https://blog.csdn.net/mweibiao/article/details/81672315
+>- mvcc概念;
+>- mysql如何处理死锁问题;
+>- 如何避免sql注入;
+>- 浅谈mysql建索引的一些注意事项;https://blog.csdn.net/qq_35181209/article/details/78029628
+>- mysql如何实现主从同步;
+>- redis用途;
+>- redis是否支持事务，能否保证ACID;
+>- redis如何保证原子性;
+>- redis能否持久化，有哪两种持久化模式;
+>- redis value有哪些格式;
+>- redis string的实现;
+>- redis如何实现主从同步;
+>- redis集群模式;
+>- 什么是一致性哈希;
+>- redis, memcached和 mongodb对比的优缺点;
+>- mongodb的索引类型;
+>- hbase的数据存储结构;
+>- hbase的优缺点及其适用的场景;
+>- 简要介绍hbase的 整体架构;
+>- hbase region如何切分;
+>- hbase二级索引要解决的问题，以及优缺点;
+>- es的用途;
+>- 什么是倒排索引;
+>- 如何在实际业务中合理选择数据库;
+>-ES搜索过程 https://blog.csdn.net/u010454030/article/details/79794788
+
+4. 消息队列相关(rabbitmq, activemq, rocketmq, kafka):
+>- 消息队列的作用;
+>- 介绍几种常见的消息队列;
+>- 各类消息队列的优缺点; (批量操作，消息推拉方式，主从方式，数据可靠性，消息吞吐性能，消息是否有序，是否支持事务，消息路由方式)
+>- rabbitmq的组成架构, 生产者和消费者如何工作;
+>- kafka的组成架构， 生产者和消费者如何工作;https://developer.51cto.com/art/202003/611798.htm
+>- 延迟队列的实现;
+
+* rabbitMQ支持对消息的可靠的传递，支持事务，不支持批量的操作
+* 有高的吞吐量，内部采用消息的批量处理，zero-copy机制，数据的存储和获取是本地磁盘顺序批量操作，具有O(1)的复杂度，消息处理的效率很高
+* Redis的订阅发布模式不安全
+> kafka做实时log分析，mq做服务器消息通信，redis做缓存
+
+>- 在应用场景方面，
+RabbitMQ,遵循AMQP协议，由内在高并发的erlanng语言开发，用在实时的对可靠性要求比较高的消息传递上。
+kafka是Linkedin于2010年12月份开源的消息发布订阅系统,它主要用于处理活跃的流式数据,大数据量的数据处理上。
+
+>- 在架构模型方面
+RabbitMQ遵循AMQP协议，RabbitMQ的broker由Exchange,Binding,queue组成，其中exchange和binding组成了消息的路由键；客户端Producer通过连接channel和server进行通信，Consumer从queue获取消息进行消费（长连接，queue有消息会推送到consumer端，consumer循环从输入流读取数据）。rabbitMQ以broker为中心；有消息的确认机制。
+kafka遵从一般的MQ结构，producer，broker，consumer，以consumer为中心，消息的消费信息保存的客户端consumer上，consumer根据消费的点，从broker上批量pull数据；无消息确认机制。
+
+>- 在吞吐量，
+kafka具有高的吞吐量，内部采用消息的批量处理，zero-copy机制，数据的存储和获取是本地磁盘顺序批量操作，具有O(1)的复杂度，消息处理的效率很高。
+rabbitMQ在吞吐量方面稍逊于kafka，他们的出发点不一样，rabbitMQ支持对消息的可靠的传递，支持事务，不支持批量的操作；基于存储的可靠性的要求存储可以采用内存或者硬盘。
+
+>- 在可用性方面
+rabbitMQ支持miror的queue，主queue失效，miror queue接管。
+kafka的broker支持主备模式。
+
+>- 在集群负载均衡方面，
+kafka采用zookeeper对集群中的broker、consumer进行管理，可以注册topic到zookeeper上；通过zookeeper的协调机制，producer保存对应topic的broker信息，可以随机或者轮询发送到broker上；并且producer可以基于语义指定分片，消息发送到broker的某分片上
+rabbitMQ的负载均衡需要单独的loadbalancer进行支持
+
+5. 分布式开发相关:
+>- 简单介绍CAP原则;
+>- 常见的服务注册发现组件：zookeeper, etcd, consul;
+>- 常见的限流算法;（令牌桶，漏桶算法，简单计数，滑动窗口）
+>- 简单介绍raft一致性算法;
+>- Paxos算法
+>- 分布式锁;
+>- zookeeper数据节点有哪两种类型;
+>- zookeeper数据版本控制;
+>- zookeeper分布式锁;
+>- 熔断， 降级
+>- RPC
+>- 序列化
+
+6. 其他技能:
+>- shell: awk, sed
+>-  git / svn
+
+7.  其他开放式问题：
+>- 简析ELK架构
+>- 如果遇到线上故障的处理流程;
+>- 日志的用途;日志的使用经验;如何定义日志级别;
+>- 对接口异常的认知; 如何处理异常;
+>- 监控与报警
+>- feed流
+>- 标签
+
+8. 算法
+>- 链表转置
+>- 循环链表
+1.标志位
+2.(rear + 1) / max == front
+3.length
+
+9. 服务器相关
+>- 平缓关闭, 重启
+>- 查看服务器状态(top等信息)
+
+服务端常用的技术有linux，mysql，网络，golang，常用算法，redis，kafka，zookeeper，etcd，consul，微服务，分布式，常用架构设计
+linux
+进程
+内存
+中断
+文件
+参考：《操作系统概念》，《linux内核设计与实现》，《鸟哥的Linux》，极客时间 https://time.geekbang.org/column/article/91550（趣谈linux）和https://time.geekbang.org/column/article/80829（linux性能优化）
+MySQL
+1.索引
+2.锁
+3.事务
+4.存储结构
+5.存储引擎
+
+参考：《高性能mysql》，《mysql技术内幕 Innodb存储引擎》，极客时间https://time.geekbang.org/column/article/74687（mysql实战45讲）
+网络
+网络体系结构
+常用协议 tcp，ip，udp，http，rpc
+网络模型 select，poll，epoll
+参考：极客时间https://time.geekbang.org/column/article/9293（趣谈网络协议）
+golang
+语法
+goroutine原理和调度
+内存模型和gc
+锁，channel，select，defer，slice，map，new，make，context，interface，waitgroup，反射
+面向对象设计原则，常用设计模式
+golang常用库，golang社区，发展
+面试题中的骚操作
+参考：《golang圣经》，极客时间 https://time.geekbang.org/column/article/12959（go语言核心36讲），golang面试题
+常用算法
+1.栈，队列，排序，查找
+2.树
+3.递归，动态规划，贪心算法
+参考：leecode，牛客网 专项练习，极客时间 https://time.geekbang.org/course/intro/130（算法面试40讲）和https://time.geekbang.org/column/article/81230（数据结构和算法之美）
+redis
+1.数据结构
+2.事件模型
+3.主从
+4.codis 分布式
+分布式
+zookeeper，kafka，consul，etcd
+https://www.zhihu.com/question/306730610/answer/582974254（分布式锁）
+常用架构设计
+关系，秒杀，账户，资料，商城，送礼，背包
+参考：映客多个系统设计，极客时间https://time.geekbang.org/column/article/40726（如何设计一个秒杀系统）

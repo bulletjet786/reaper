@@ -1,9 +1,92 @@
 ## 简单动态字符串
 
 ### 数据结构
+```
+struct __attribute__ ((__packed__)) sdshdr5 {
+    unsigned char flags; /* 3 lsb of type, and 5 msb of string length */
+    char buf[];
+};
+struct __attribute__ ((__packed__)) sdshdr8 {
+    uint8_t len; /* used */
+    uint8_t alloc; /* excluding the header and null terminator */
+    unsigned char flags; /* 3 lsb of type, 5 unused bits */
+    char buf[];
+};
+struct __attribute__ ((__packed__)) sdshdr16 {
+    uint16_t len; /* used */
+    uint16_t alloc; /* excluding the header and null terminator */
+    unsigned char flags; /* 3 lsb of type, 5 unused bits */
+    char buf[];
+};
+struct __attribute__ ((__packed__)) sdshdr32 {
+    uint32_t len; /* used */
+    uint32_t alloc; /* excluding the header and null terminator */
+    unsigned char flags; /* 3 lsb of type, 5 unused bits */
+    char buf[];
+};
+struct __attribute__ ((__packed__)) sdshdr64 {
+    uint64_t len; /* used */
+    uint64_t alloc; /* excluding the header and null terminator */
+    unsigned char flags; /* 3 lsb of type, 5 unused bits */
+    char buf[];
+};
+#define SDS_HDR_VAR(T,s) struct sdshdr##T *sh = (void*)((s)-(sizeof(struct sdshdr##T)));
+#define SDS_HDR(T,s) ((struct sdshdr##T *)((s)-(sizeof(struct sdshdr##T))))
+#define SDS_TYPE_5_LEN(f) ((f)>>SDS_TYPE_BITS)
+
+// 一般情况下，结构体按其所有变量大小的最小公倍数字节对齐，用packet修饰后，结构体按1字节对齐。
+```
 
 ### 头部
+- flags: s[-1]
+- 获取sds结构体：SDS_HDR(16,s)
+- 获取sds结构体并赋值为sh变量：SDS_HDR_VAR(T,s)
 
+### 字符串拼接扩容过程
+1. 计算拼接后长度
+2. 如无须扩容，则直接追加
+3. 如需要扩容，则进行扩容，并计算拼接后数据类型
+4. 如数据类型相同，则直接realloc
+5. 如数据类型不同，则新建并迁移数据
+
+### 扩容机制
+1. 当len+addlen<1MB时，则新大小为2*(len+addlen)
+2. 当len+addlen>1MB时，则新大小为len+addlen+1MB
+
+## 整数集合
+
+### 数据结构
+```
+typedef struct intset {
+    uint32_t encoding;
+    uint32_t length;
+    int8_t contents[];
+} intset;
+
+编码类型：
+INTSET_ENC_INT16：int16, 2个字节
+INTSET_ENC_INT32: int32, 4个字节
+INTSET_ENC_INT64: int64, 8个字节
+
+intset按从小到大有序排序
+```
+
+### 查找元素
+1. 如果要查找的元素>当前intset编码的最大值，则直接返回未找到
+2. 检查是否>intset中的最大值或者<intset中的最小值，如果是，返回没找到
+3. 二分查找该元素
+
+### 添加元素
+1. 如果待添加元素的编码大于当前intset的编码，则进行升级扩容并直接插入
+2. 如果当前元素已存在，则返回
+3. 如果当前元素不存在，则先扩容数组，大小+1
+4. 数组插入元素
+5. 长度+1
+
+### 删除元素
+1. 如果待删除元素的编码大于当前intset的编码，则进行返回
+2. 查找到要删除元素的位置
+3. 数组删除元素
 
 ## 跳表
 

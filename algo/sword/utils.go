@@ -1,5 +1,11 @@
 package sword
 
+type TreeNode struct {
+	Val   int
+	Left  *TreeNode
+	Right *TreeNode
+}
+
 // 查找在有序列表nums[first,stop)中第一个可插入位置
 func lowerBound(nums []int, value int) int {
 	left := 0

@@ -41,7 +41,7 @@ typedef struct redisObject {
 
 **String**
 - 当存储的值可以表示为64位整数时，使用OBJ_ENCODING_INT实现
-- 当存储的值只能用字符串表示，且其字节长度小于常量OBJ_ENCODING_EMBSTR_SIZE_LIMIT==44字节时，使用OBJ_ENCODING_EMBSTR
+- 当存储的值只能用字符串表示，且其字节长度小于等于常量OBJ_ENCODING_EMBSTR_SIZE_LIMIT==44字节时，使用OBJ_ENCODING_EMBSTR
 - 否则使用OBJ_ENCODING_RAW
 
 ```
@@ -106,19 +106,167 @@ robj *tryObjectEncoding(robj *o) {
 ```
 
 **List**
-- 使用OBJ_ENCODING_SKIPLIST实现，默认不压缩节点，单个ziplist最大为8K
+- 使用OBJ_ENCODING_QUICKLIST实现，默认不压缩节点，单个ziplist最大为8K
+```
+void listTypeInsert(listTypeEntry *entry, robj *value, int where) {
+    if (entry->li->encoding == OBJ_ENCODING_QUICKLIST) {
+        value = getDecodedObject(value);
+        sds str = value->ptr;
+        size_t len = sdslen(str);
+        if (where == LIST_TAIL) {
+            quicklistInsertAfter((quicklist *)entry->entry.quicklist,
+                                 &entry->entry, str, len);
+        } else if (where == LIST_HEAD) {
+            quicklistInsertBefore((quicklist *)entry->entry.quicklist,
+                                  &entry->entry, str, len);
+        }
+        decrRefCount(value);
+    } else {
+        serverPanic("Unknown list encoding");
+    }
+}
+```
 
 **Set**
-- 当entry数量小于512，且所有元素为整数时，使用OBJ_ENCODING_INTSET存储
+- 当entry数量小于等于512，且所有元素为整数时，使用OBJ_ENCODING_INTSET存储
 - 否则使用OBJ_ENCODING_HT存储
+- 当求交集的时候，如果交并差集可以使用OBJ_ENCODING_INTSET，则优先使用OBJ_ENCODING_INTSET存储
+```
+int setTypeAdd(robj *subject, sds value) {
+    long long llval;
+    if (subject->encoding == OBJ_ENCODING_HT) {
+        dict *ht = subject->ptr;
+        dictEntry *de = dictAddRaw(ht,value,NULL);
+        if (de) {
+            dictSetKey(ht,de,sdsdup(value));
+            dictSetVal(ht,de,NULL);
+            return 1;
+        }
+    } else if (subject->encoding == OBJ_ENCODING_INTSET) {
+        if (isSdsRepresentableAsLongLong(value,&llval) == C_OK) {
+            uint8_t success = 0;
+            subject->ptr = intsetAdd(subject->ptr,llval,&success);
+            if (success) {
+                /* 当intset中包含512以上元素时，转换 */
+                if (intsetLen(subject->ptr) > server.set_max_intset_entries)
+                    setTypeConvert(subject,OBJ_ENCODING_HT);
+                return 1;
+            }
+        } else {
+            /* 当新插入元素无法表示为整数时，转换 */
+            setTypeConvert(subject,OBJ_ENCODING_HT);
+
+            /* The set *was* an intset and this value is not integer
+             * encodable, so dictAdd should always work. */
+            serverAssert(dictAdd(subject->ptr,sdsdup(value),NULL) == DICT_OK);
+            return 1;
+        }
+    } else {
+        serverPanic("Unknown set encoding");
+    }
+    return 0;
+}
+
+void zsetConvertToZiplistIfNeeded(robj *zobj, size_t maxelelen) {
+    if (zobj->encoding == OBJ_ENCODING_ZIPLIST) return;
+    zset *zset = zobj->ptr;
+
+    if (zset->zsl->length <= server.zset_max_ziplist_entries &&
+        maxelelen <= server.zset_max_ziplist_value)
+            zsetConvert(zobj,OBJ_ENCODING_ZIPLIST);
+}
+```
 
 **Zset**
-- 当entry数量小于128，且所有entry的长度都小于64字节时，使用OBJ_ENCODING_INTSET存储
+- 当entry数量小于等于128，且所有entry的长度都小于等于64字节时，使用OBJ_ENCODING_INTSET存储
 - 否则使用OBJ_ENCODING_HT存储
+```
+int zsetAdd(robj *zobj, double score, sds ele, int *flags, double *newscore) {
+    ...
+    /* Update the sorted set according to its encoding. */
+    if (zobj->encoding == OBJ_ENCODING_ZIPLIST) {
+        unsigned char *eptr;
+
+        if ((eptr = zzlFind(zobj->ptr,ele,&curscore)) != NULL) {
+            ...
+            return 1;
+        } else if (!xx) {
+            /* 当新增加的元素长度>64字节时，或者元素数量>128时，转换为SKIPLIST */
+            zobj->ptr = zzlInsert(zobj->ptr,ele,score);
+            if (zzlLength(zobj->ptr) > server.zset_max_ziplist_entries)
+                zsetConvert(zobj,OBJ_ENCODING_SKIPLIST);
+            if (sdslen(ele) > server.zset_max_ziplist_value)
+                zsetConvert(zobj,OBJ_ENCODING_SKIPLIST);
+            if (newscore) *newscore = score;
+            *flags |= ZADD_ADDED;
+            return 1;
+        } else {
+            *flags |= ZADD_NOP;
+            return 1;
+        }
+    } else if (zobj->encoding == OBJ_ENCODING_SKIPLIST) {
+        ...
+    } else {
+        serverPanic("Unknown sorted set encoding");
+    }
+    return 0; /* Never reached. */
+}
+```
 
 **Hash**
-- 当entry数量小于512，且所有entry的长度都小于64字节时，使用OBJ_ENCODING_ZIPLIST存储
+- 当entry数量小于等于512，且所有entry的长度都小于等于64字节时，使用OBJ_ENCODING_ZIPLIST存储
 - 否则使用OBJ_ENCODING_HT存储
+```
+void hsetCommand(client *c) {
+    int i, created = 0;
+    robj *o;
+
+    if ((c->argc % 2) == 1) {
+        addReplyError(c,"wrong number of arguments for HMSET");
+        return;
+    }
+
+    /* 查找key */
+    if ((o = hashTypeLookupWriteOrCreate(c,c->argv[1])) == NULL) return;
+    // 尝试转化编码格式
+    hashTypeTryConversion(o,c->argv,2,c->argc-1);
+
+    /* 将[field,value]写入到DB中 */
+    for (i = 2; i < c->argc; i += 2)
+        created += !hashTypeSet(o,c->argv[i]->ptr,c->argv[i+1]->ptr,HASH_SET_COPY);
+
+    /* HMSET返回+OK,而HSET返回添加的field个数 */
+    char *cmdname = c->argv[0]->ptr;
+    if (cmdname[1] == 's' || cmdname[1] == 'S') {
+        /* HSET */
+        addReplyLongLong(c, created);
+    } else {
+        /* HMSET */
+        addReply(c, shared.ok);
+    }
+    /* 处理乐观锁Watch，将所有watch该key的所有Client置CLIENT_DIRTY—CAS */
+    signalModifiedKey(c->db,c->argv[1]);
+    notifyKeyspaceEvent(NOTIFY_HASH,"hset",c->argv[1],c->db->id);
+    server.dirty++;
+}
+
+/* 检查一系列的对象，判断是否需要从ziplist转化成hashtable。我们仅仅检查字符串对象和
+ * 他的长度，这个检查可以在常量时间内完成。*/
+void hashTypeTryConversion(robj *o, robj **argv, int start, int end) {
+    int i;
+
+    if (o->encoding != OBJ_ENCODING_ZIPLIST) return;
+
+    for (i = start; i <= end; i++) {
+        if (sdsEncodedObject(argv[i]) &&
+            sdslen(argv[i]->ptr) > server.hash_max_ziplist_value)
+        {
+            hashTypeConvert(o, OBJ_ENCODING_HT);
+            break;
+        }
+    }
+}
+```
 
 **Module**
 - 无编码格式

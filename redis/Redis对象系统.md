@@ -911,3 +911,264 @@ void createSharedObjects(void) {
     shared.maxstring = sdsnew("maxstring");
 }
 ```
+
+## 过期策略
+- 定时过期：CPU不友好，需要设置定时器，可能会在业务场景忙的以后执行大量的过期任务，影响平响和吞吐量。
+- 惰性过期：内存不友好，可能有大量的数据过期但未删除。
+- 定期过期：后台周期性删除，CPU和内存的折中考虑。
+
+redis使用了惰性过期和定期过期的结合。
+
+### 惰性删除
+```
+/* 查找一个key用于读操作，如果没找到则返回NULL
+ *
+ * 这个函数将会删除一下副作用：
+ * 1。 如果key的ttl到达，则会进行过期
+ * 2。key的lru字段将会被更新
+ * 3。服务器的hits/misses状态将会被更新
+ *
+ * LOOKUP_NONE：无特殊参数
+ * LOOKUP_NOTOUCH：不要修改lru字段
+ *
+ * 注意：当在slave上下文中，如果是读操作，只要这个key逻辑上是过期的，即使它仍然存在还是会返回NULL
+ * key的过期是由master通过一个DEL传播进行驱动的，这样的话，即使master的DEL传播堆积延迟了，
+ * slave仍然会返回正确的值。
+ * */
+robj *lookupKeyReadWithFlags(redisDb *db, robj *key, int flags) {
+    robj *val;
+
+    if (expireIfNeeded(db,key) == 1) {          // 如果key已经过期了
+        /* 过期key。如果我们在master上下文中，key过期了将会直接删除，返回NULL即可 */
+        if (server.masterhost == NULL) return NULL;
+
+        /* 如果我们在slave上下文中，expireIfNeeded()将不会真正的过期该key，而是仅仅返回过期的逻辑状态，
+         * 这是因为为了保证主从数据库视图的一致性，从库的过期是由主库驱动的。
+         * 当从库的调用方不是master时，当命令是只读的，对于过期的key，我们会返回NULL，
+         * 来提供一个更加一致性的只读场景的行为模式。
+         * 这种行为模式保证了redis可以用于主从读写分离。*/
+        if (server.current_client &&
+            server.current_client != server.master &&
+            server.current_client->cmd &&
+            server.current_client->cmd->flags & CMD_READONLY)
+        {
+            return NULL;
+        }
+    }
+    val = lookupKey(db,key,flags);
+    if (val == NULL)
+        server.stat_keyspace_misses++;
+    else
+        server.stat_keyspace_hits++;
+    return val;
+}
+
+/* 返回值0表示key仍然合法，1表示该key已经过期 */
+/* 当上下文是master时，如果过期了将会删除该key，过期返回1，未过期返回0
+ * 当上下文是slave时，如果过期了将会返回1，未过期返回0 */
+int expireIfNeeded(redisDb *db, robj *key) {
+    mstime_t when = getExpire(db,key);
+    mstime_t now;
+
+    if (when < 0) return 0;    // 没有设置过期时间
+
+    // 加载期间不进行删除，删除操作将会在之后进行
+    if (server.loading) return 0;
+
+    /* If we are in the context of a Lua script, we pretend that time is
+     * blocked to when the Lua script started. This way a key can expire
+     * only the first time it is accessed and not in the middle of the
+     * script execution, making propagation to slaves / AOF consistent.
+     * See issue #1525 on Github for more information. */
+    now = server.lua_caller ? server.lua_time_start : mstime();
+
+    /* 如果当前是从库，从库的删除是从主库发送一个同步的DEL操作来控制的
+     * 但是我们仍然返回正确的信息，如果expire合法返回0，expire过期返回1 */
+    if (server.masterhost != NULL) return now > when;
+
+    // 未过期直接返回
+    if (now <= when) return 0;
+
+    // 过期，删除该key
+    server.stat_expiredkeys++;
+    propagateExpire(db,key,server.lazyfree_lazy_expire);
+    notifyKeyspaceEvent(NOTIFY_EXPIRED,
+        "expired",key,db->id);
+    return server.lazyfree_lazy_expire ? dbAsyncDelete(db,key) :
+                                         dbSyncDelete(db,key);
+}
+```
+
+### 定期删除
+1. 模式自适应：
+    - 快速模式：如果上次调用是因超时而引起的退出，说明要过期的key较多，则下次会开启快速模式：在睡眠之前会调用快速模式，快速模式会执行1ms，且2ms只能执行一次
+    - 慢速模式：函数执行的时间不超过1000/server.hz*25%=25ms
+2. 每次清理默认为16个数据库
+    - 当不足16个时，迭代全部数据库
+    - 当上次超时退出时，迭代全部数据库
+3. 每个库会一直进行抽样删除的迭代，抽样样本个数为20个key，直到某轮清理的key少于5个，此时认为待清理的key占总key不足25%，则进行下一个库的迭代
+4. 每16次迭代检查一下是否超时，如果超时则直接退出
+```
+/* 尝试删除一部分过期key。这个算法是自适应的。
+ * 如果过期key较少，则会使用更少的CPU周期，否则将会使用更激进的策略来防止过期key占用过多内存。
+ *
+ * 每次循环中被测试的数据库数目不会超过 REDIS_DBCRON_DBS_PER_CALL
+ *
+ * 如果timelimit_exit说明上次是因为超时引起的退出，间接说明过期key比较多，
+ * 我们将会在beforeSleep()中再次执行这个函数。
+ *
+ * ACTIVE_EXPIRE_CYCLE_FAST：
+ * 执行的时间不会长过 EXPIRE_FAST_CYCLE_DURATION=1ms，并且在 EXPIRE_FAST_CYCLE_DURATION * 2ms之内不会再重新执行
+ * ACTIVE_EXPIRE_CYCLE_SLOW：
+ * 函数的执行时限为 REDIS_HS 常量的一个百分比，这个百分比由 REDIS_EXPIRELOOKUPS_TIME_PERC=25% 定义
+ * */
+void activeExpireCycle(int type) {
+    /* 这些static状态是用来保存每次清理后的信息 */
+    static unsigned int current_db = 0; /* Last DB tested. */
+    static int timelimit_exit = 0;      /* Time limit hit in previous call? */
+    static long long last_fast_cycle = 0; /* 最后一次执行fast周期的时间 */
+
+    int j, iteration = 0;
+    int dbs_per_call = CRON_DBS_PER_CALL;
+    long long start = ustime(), timelimit, elapsed;
+
+    /* 当client暂停时，不仅是从客户端的角度看不能写，并且key的过期和淘汰也不应该被执行 */
+    if (clientsArePaused()) return;
+
+    if (type == ACTIVE_EXPIRE_CYCLE_FAST) {
+        /* 如果上一次不是因超时而引起的退出，则不执行 */
+        if (!timelimit_exit) return;
+        /* 如果上次开始执行的时间点距离现在没超过2s，也不执行 */
+        if (start < last_fast_cycle + ACTIVE_EXPIRE_CYCLE_FAST_DURATION*2) return;
+        last_fast_cycle = start;
+    }
+
+    /* 一般情况下，我们希望每次迭代最多CRON_DBS_PER_CALL个数据库，除非：
+     * 1. 当没有这么多数据库，我们一次迭代全部数据库
+     * 2. 上次是因超时引起的函数退出，我们也会迭代所有的数据库，以释放内存
+     * */
+    if (dbs_per_call > server.dbnum || timelimit_exit)
+        dbs_per_call = server.dbnum;
+
+    /* 该函数每秒被调用server.hz次，计算调用该函数所允许的最大时间，单位微秒us */
+    timelimit = 1000000*ACTIVE_EXPIRE_CYCLE_SLOW_TIME_PERC/server.hz/100;
+    timelimit_exit = 0;
+    if (timelimit <= 0) timelimit = 1;
+
+    // 如果是快速模式，则设置为1ms
+    if (type == ACTIVE_EXPIRE_CYCLE_FAST)
+        timelimit = ACTIVE_EXPIRE_CYCLE_FAST_DURATION;
+
+    /* 统计数据用于更新估计值 */
+    long total_sampled = 0;
+    long total_expired = 0;
+
+    /* 当迭代完成或者超时时退出 */
+    for (j = 0; j < dbs_per_call && timelimit_exit == 0; j++) {
+        int expired;
+        redisDb *db = server.db+(current_db % server.dbnum);
+
+        current_db++;
+
+        /* 每个库至少做一轮迭代 */
+        do {
+            unsigned long num, slots;
+            long long now, ttl_sum;
+            int ttl_samples;
+            iteration++;
+
+            /* 如果该库无过期键则直接返回 */
+            if ((num = dictSize(db->expires)) == 0) {
+                db->avg_ttl = 0;
+                break;
+            }
+            slots = dictSlots(db->expires);
+            now = mstime();
+
+            /* 当元素/槽位比小于1%时，获取随机键太过昂贵，
+             * 并且这种情况下，字典很快将会被resize，跳过该库 */
+            if (num && slots > DICT_HT_INITIAL_SIZE &&
+                (num*100/slots < 1)) break;
+
+            /* 每轮抽样不超过20个key进行淘汰 */
+            expired = 0;
+            ttl_sum = 0;
+            ttl_samples = 0;
+
+            /* 每个数据库抽样的key不会超过20个 */
+            if (num > ACTIVE_EXPIRE_CYCLE_LOOKUPS_PER_LOOP)
+                num = ACTIVE_EXPIRE_CYCLE_LOOKUPS_PER_LOOP;
+
+            while (num--) {
+                dictEntry *de;
+                long long ttl;
+
+                if ((de = dictGetRandomKey(db->expires)) == NULL) break;
+                ttl = dictGetSignedIntegerVal(de)-now;
+                if (activeExpireCycleTryExpire(db,de,now)) expired++;
+                if (ttl > 0) {
+                    /* We want the average TTL of keys yet not expired. */
+                    ttl_sum += ttl;
+                    ttl_samples++;
+                }
+                total_sampled++;
+            }
+            total_expired += expired;
+
+            /* 如果存在未过期的抽样数据，则更新抽样 */
+            if (ttl_samples) {
+                long long avg_ttl = ttl_sum/ttl_samples;
+                /* 更新avg_ttl估计值：prev_avg_ttl * 98% + sample_avg_ttl * 2% */
+                if (db->avg_ttl == 0) db->avg_ttl = avg_ttl;
+                db->avg_ttl = (db->avg_ttl/50)*49 + (avg_ttl/50);
+            }
+
+            /* 如果有很多key要过期，我们不能永远阻塞，因此如果时间超过timelimit，
+             * 我们需要退出该循环，这个检查每进行16次迭代做一次 */
+            if ((iteration & 0xf) == 0) {
+                elapsed = ustime()-start;
+                if (elapsed > timelimit) {
+                    timelimit_exit = 1;
+                    server.stat_expired_time_cap_reached_count++;
+                    break;
+                }
+            }
+            /* 当某轮过期成功的key占总抽样数不超过25%，就开始迭代下一个数据库 */
+        } while (expired > ACTIVE_EXPIRE_CYCLE_LOOKUPS_PER_LOOP/4);
+    }
+
+    elapsed = ustime()-start;
+    latencyAddSampleIfNeeded("expire-cycle",elapsed/1000);
+
+    /* 更新stat_expired_stale_perc估计值 */
+    double current_perc;
+    if (total_sampled) {
+        current_perc = (double)total_expired/total_sampled;
+    } else
+        current_perc = 0;
+    server.stat_expired_stale_perc = (current_perc*0.05)+
+                                     (server.stat_expired_stale_perc*0.95);
+}
+
+/* 尝试过期一个key */
+int activeExpireCycleTryExpire(redisDb *db, dictEntry *de, long long now) {
+    long long t = dictGetSignedIntegerVal(de);
+    if (now > t) {
+        sds key = dictGetKey(de);
+        robj *keyobj = createStringObject(key,sdslen(key));
+
+        propagateExpire(db,keyobj,server.lazyfree_lazy_expire);
+        if (server.lazyfree_lazy_expire)
+            dbAsyncDelete(db,keyobj);
+        else
+            dbSyncDelete(db,keyobj);
+        notifyKeyspaceEvent(NOTIFY_EXPIRED,
+            "expired",keyobj,db->id);
+        decrRefCount(keyobj);
+        server.stat_expiredkeys++;
+        return 1;
+    } else {
+        return 0;
+    }
+}
+```

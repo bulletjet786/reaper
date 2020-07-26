@@ -6,11 +6,6 @@ package sword
 
 // 前后指针
 
-type ListNode struct {
-	Val  int
-	Next *ListNode
-}
-
 func getKthFromEnd(head *ListNode, k int) *ListNode {
 
 	if head == nil {

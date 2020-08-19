@@ -3,9 +3,7 @@
 ### 主从同步流程图
 ![主从复制流程图](https://tva1.sinaimg.cn/large/007S8ZIlly1ghv5jpcttuj30vy0u00wn.jpg)
 
-### 源码分析
-
-#### 状态常量
+### 状态常量
 ```
 /* 当前服务器作为slave的复制状态，保存在server.repl_state用于记住下一步该干什么 */
 #define REPL_STATE_NONE 0 /* 复制能力未激活 */
@@ -36,7 +34,7 @@
 #define SLAVE_STATE_ONLINE 9 /* RDB传输完成，发送后续的命令传播 */
 ```
 
-#### 启动同步
+### 启动同步
 客户端向从服务器发送slavef {ip:port}命令
 ```
 /* REPLCONF <option> <value> <option> <value> ...
@@ -111,11 +109,9 @@ void replconfCommand(client *c) {
     }
     addReply(c,shared.ok);
 }
-
-
 ```
 
-#### 配置同步信息
+### 配置同步信息
 从服务器在serverCron事件函数中向主服务器发送replconf信息
 ```
 /* 复制核心函数，每秒执行一次，在serverCron中调用 */
@@ -584,7 +580,7 @@ void replconfCommand(client *c) {
 }
 ```
 
-#### 同步策略协调
+### 同步策略协调
 从服务器询问同步策略
 ```
 /* 如果我们正在重连，尝试一个部分重同步。
@@ -1025,7 +1021,7 @@ void replicationResurrectCachedMaster(int newfd) {
 ```
 主服务器推送数据缓冲区中的数据：见masterTryPartialResynchronization()
 
-#### 进行完整重同步：
+### 进行完整重同步：
 主服务器准备RDB文件并传输给从服务器
 ```
 /* 为了复制开启一个BGSAVE进程，根据配置选择disk或者socket，并且确保在开始前脚本缓存被清理。

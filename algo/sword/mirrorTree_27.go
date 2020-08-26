@@ -4,25 +4,25 @@ package sword
 
 // 方法一：递归法
 // O(n) O(n)
-//根据二叉树镜像的定义，考虑递归遍历（dfs）二叉树，交换每个节点的左 / 右子节点，即可生成二叉树的镜像。
-//递归解析：
-//终止条件： 当节点 rootroot 为空时（即越过叶节点），则返回 nullnull ；
-//递推工作：
-//初始化节点 tmptmp ，用于暂存 rootroot 的左子节点；
-//开启递归 右子节点 mirrorTree(root.right)mirrorTree(root.right) ，并将返回值作为 rootroot 的 左子节点 。
-//开启递归 左子节点 mirrorTree(tmp)mirrorTree(tmp) ，并将返回值作为 rootroot 的 右子节点 。
+// 根据二叉树镜像的定义，考虑递归遍历（dfs）二叉树，交换每个节点的左 / 右子节点，即可生成二叉树的镜像。
+// 递归解析：
+// 终止条件： 当节点 root 为空时（即越过叶节点），则返回 null ；
+// 递推工作：
+// 初始化节点 tmp ，用于暂存 root 的左子节点；
+// 开启递归 右子节点 mirrorTree(root.right)，并将返回值作为 root 的 左子节点 。
+// 开启递归 左子节点 mirrorTree(tmp) ，并将返回值作为 root 的 右子节点 。
 
 // 方法二：辅助栈（或队列）
 // O(n) O(n)
-//利用栈（或队列）遍历树的所有节点 nodenode ，并交换每个 nodenode 的左 / 右子节点。
-//算法流程：
-//特例处理： 当 rootroot 为空时，直接返回 nullnull ；
-//初始化： 栈（或队列），本文用栈，并加入根节点 rootroot 。
-//循环交换： 当栈 stackstack 为空时跳出；
-//出栈： 记为 nodenode ；
-//添加子节点： 将 nodenode 左和右子节点入栈；
-//交换： 交换 nodenode 的左 / 右子节点。
-//返回值： 返回根节点 rootroot 。
+// 利用栈（或队列）遍历树的所有节点 node ，并交换每个 node 的左 / 右子节点。
+// 算法流程：
+// 特例处理： 当 root 为空时，直接返回 null ；
+// 初始化： 栈（或队列），本文用栈，并加入根节点 root 。
+// 循环交换： 当栈 stack 为空时跳出；
+// 出栈： 记为 node ；
+// 添加子节点： 将 node 左和右子节点入栈；
+// 交换： 交换 node 的左 / 右子节点。
+// 返回值： 返回根节点 root 。
 
 func mirrorTree(root *TreeNode) *TreeNode {
 	if root == nil {

@@ -6,7 +6,7 @@ package sword
 // I. 按层打印： 题目要求的二叉树的 从上至下 打印（即按层打印），又称为二叉树的 广度优先搜索（BFS）。BFS 通常借助 队列 的先入先出特性来实现。
 // II. 每层打印到一行： 将本层全部节点打印到一行，并将下一层全部节点加入队列，以此类推，即可分为多行打印。
 
-func levelOrder(root *TreeNode) [][]int {
+func levelOrder2(root *TreeNode) [][]int {
 	if root == nil {
 		return nil
 	}

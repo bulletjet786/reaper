@@ -25,3 +25,5 @@ func lowerBound(nums []int, value int) int {
 	}
 	return left
 }
+
+// 树的先序遍历

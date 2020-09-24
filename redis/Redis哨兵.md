@@ -1053,7 +1053,7 @@ void sentinelFailoverSelectSlave(sentinelRedisInstance *ri) {
  *      我们应该根据复制偏移量选择一个最好的slave。
  * 5) slave优先级不能为0，不然我们会放弃这个。
  * 满足以上条件时，我们将会按照以下条件排序：
- * - 更大的优先级
+ * - 更小的优先级
  * - 更大的复制偏移量
  * - 更小字典序的runid
  * 如果找到了合适的slave，将会返回，没找到则返回NULL */

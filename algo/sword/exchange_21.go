@@ -23,9 +23,9 @@ func exchange(nums []int) []int {
 }
 
 // 快慢指针
-// fast 的作用是向前搜索奇数位置，low 的作用是指向下一个奇数应当存放的位置
-// fast 向前移动，当它搜索到奇数时，将它和 nums[low] 交换，此时 low 向前移动一个位置.
-// [0,low)都是奇数
+// fast 的作用是向前搜索奇数位置，slow 的作用是指向下一个奇数应当存放的位置
+// fast 向前移动，当它搜索到奇数时，将它和 nums[slow] 交换，此时 slow 向前移动一个位置.
+// [0,slow)都是奇数
 
 func exchange2(nums []int) []int {
 	slow := 0
